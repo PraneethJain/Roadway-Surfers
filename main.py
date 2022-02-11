@@ -70,10 +70,10 @@ class Cars:
         """
         screen.show(self.image,(width/4-100+150*(self.column-1),self.y))
         
-    def move(self) -> None:
+    def move(self,speed) -> None:
         """Moves the car slighly down
         """
-        self.y+=0.8
+        self.y+=speed
         self.show()
 
 
@@ -109,6 +109,21 @@ class Buttons:
         screen.show(self.string,(width/2-self.string.get_rect().width/2,self.pos[1]+10))
 
 
+class Player:
+    def __init__(self):
+        self.image=pg.image.load('Assets\slime_red.png')
+        self.width=self.image.get_width()
+        self.height=self.image.get_height()
+        self.pos=(width/2-self.width/2,height-self.height-50)
+        
+    def move(self,pos):
+        self.pos=pos
+        self.show()
+        
+    def show(self):
+        screen.show(self.image,self.pos)
+
+
 colors=['blue','brown','green','red','yellow']
 def get_car() -> object:
     """Function to generate car
@@ -132,6 +147,10 @@ pg.time.set_timer(car_event,1000)
 car_list=[]
 
 status=0
+player = Player()
+dx,dy=0,0
+score=0
+
 while True:
     
     if pg.event.get(pg.QUIT): screen.close()
@@ -145,15 +164,29 @@ while True:
             if e.type == pg.KEYDOWN:
                 if e.key == pg.K_ESCAPE:
                     [car.show() for car in car_list]
+                    player.show()
                     pg.image.save(screen.window,'Assets\screenshot.jpg')
                     screenshot = Image.open('Assets\screenshot.jpg')
                     blur = screenshot.filter(ImageFilter.GaussianBlur(7))
                     blur.save('assets\\blurred.jpg')
                     blurred = pg.image.load('Assets\\blurred.jpg')
-                    status=1        
+                    status=1
+                
+                if e.key == pg.K_LEFT: dx=-0.5
+                if e.key == pg.K_RIGHT: dx=0.5
+                if e.key == pg.K_UP: dy=-0.5
+                if e.key == pg.K_DOWN: dy=0.5
+            
+            if e.type == pg.KEYUP:
+                if e.key == pg.K_LEFT or e.key == pg.K_RIGHT: dx=0
+                if e.key == pg.K_UP or e.key == pg.K_DOWN: dy=0
+        
         for car in car_list:
-            car.move()
+            car.move(randrange(6,10)/10)
             if car.y > height: car_list.remove(car)
+            
+        
+        player.move((player.pos[0]+dx,player.pos[1]+dy))
         
     if status==1:
         
