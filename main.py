@@ -2,7 +2,6 @@ import pygame as pg
 from PIL import Image,ImageFilter
 from random import randrange
 import os
-from rich import print
 
 
 class Window:
@@ -62,13 +61,18 @@ class Cars:
         """
         self.color=color
         self.column=column
-        self.image=pg.image.load(os.path.join('Assets','car_'+color+'.png'))
+        self.image=pg.image.load(os.path.join('Assets','car_'+color+'.png')).convert_alpha()
+        self.x=width/4-100+150*(self.column-1)
         self.y=y
+        self.height=self.image.get_height()
+        self.width=self.image.get_width()
+        self.rect=self.image.get_rect()
+        self.mask=pg.mask.from_surface(self.image)
         
     def show(self) -> None:
         """Show the car
         """
-        screen.show(self.image,(width/4-100+150*(self.column-1),self.y))
+        screen.show(self.image,(self.x,self.y))
         
     def move(self,speed) -> None:
         """Moves the car slighly down
@@ -110,18 +114,33 @@ class Buttons:
 
 
 class Player:
-    def __init__(self):
-        self.image=pg.image.load('Assets\slime_red.png')
+    
+    def __init__(self,) -> None:
+        """Initialize a player
+        """
+        self.image=pg.image.load('Assets\slime_red.png').convert_alpha()
         self.width=self.image.get_width()
         self.height=self.image.get_height()
-        self.pos=(width/2-self.width/2,height-self.height-50)
+        self.x,self.y=width/2-self.width/2,height-self.height-50
+        self.rect=self.image.get_rect()
+        self.mask=pg.mask.from_surface(self.image)
         
-    def move(self,pos):
-        self.pos=pos
-        self.show()
+    def show(self) -> None:
+        """Show the player at its position
+        """
+        screen.show(self.image,(self.x,self.y))
         
-    def show(self):
-        screen.show(self.image,self.pos)
+    def move(self,x,y, show: bool = True) -> None:
+        """Move the player
+
+        Args:
+            pos (tuple): coordinates to move to
+            show (bool, optional): Whether to show the moved player. Defaults to True.
+        """
+        self.x=x
+        self.y=y
+        if show:
+            self.show()
 
 
 colors=['blue','brown','green','red','yellow']
@@ -151,6 +170,10 @@ player = Player()
 dx,dy=0,0
 score=0
 
+my_font=pg.font.Font("Fonts\ARCADECLASSIC.TTF",50)
+big_font=pg.font.Font("Fonts\ARCADECLASSIC.TTF",100)
+game_over=big_font.render('GAME OVER',False,(0,0,0))
+
 while True:
     
     if pg.event.get(pg.QUIT): screen.close()
@@ -158,9 +181,10 @@ while True:
     if status==0:
         
         screen.show(bg,(0,0))
-        
+        screen_text = my_font.render(str(score),0,(0,0,0))
+        screen.show(screen_text,(10,10))
         for e in pg.event.get():
-            if e.type == car_event: car_list.append(get_car())
+            if e.type == car_event: car_list.append(get_car()); score+=1
             if e.type == pg.KEYDOWN:
                 if e.key == pg.K_ESCAPE:
                     [car.show() for car in car_list]
@@ -172,22 +196,37 @@ while True:
                     blurred = pg.image.load('Assets\\blurred.jpg')
                     status=1
                 
-                if e.key == pg.K_LEFT: dx=-0.5
-                if e.key == pg.K_RIGHT: dx=0.5
-                if e.key == pg.K_UP: dy=-0.5
-                if e.key == pg.K_DOWN: dy=0.5
+                if e.key == pg.K_LEFT: dx=-1
+                if e.key == pg.K_RIGHT: dx=1
+                if e.key == pg.K_UP: dy=-1
+                if e.key == pg.K_DOWN: dy=1
             
             if e.type == pg.KEYUP:
                 if e.key == pg.K_LEFT or e.key == pg.K_RIGHT: dx=0
                 if e.key == pg.K_UP or e.key == pg.K_DOWN: dy=0
         
+        if player.x<-player.width and dx==-1: player.x=width
+        if player.x>width+player.width and dx==1: player.x=-player.width
+        if player.y<0: player.y=0
+        if player.y>height-player.height: player.y=height-player.height
+        
+        player.move(player.x+dx,player.y+dy)
+        
         for car in car_list:
-            car.move(randrange(6,10)/10)
+            car.move(1)
             if car.y > height: car_list.remove(car)
-            
-        
-        player.move((player.pos[0]+dx,player.pos[1]+dy))
-        
+            if car.x-player.width<player.x<car.x+car.width and car.y-player.height<player.y<car.y+car.height:   
+                [car.show() for car in car_list]
+                player.show()
+                pg.image.save(screen.window,'Assets\screenshot.jpg')
+                screenshot = Image.open('Assets\screenshot.jpg')
+                blur = screenshot.filter(ImageFilter.GaussianBlur(7))
+                blur.save('assets\\blurred.jpg')
+                blurred = pg.image.load('Assets\\blurred.jpg')
+                score_text=my_font.render(f'Score is  {score}',False,(0,0,0))
+                restart=my_font.render(f'Enter  to  restart',False,(0,0,0))
+                status=2
+    
     if status==1:
         
         screen.show(blurred,(0,0))
@@ -207,6 +246,18 @@ while True:
             b2.show_box()
             for e in pg.event.get():
                 if e.type == pg.MOUSEBUTTONDOWN: screen.close()
-        
+    
+    if status==2:
+        screen.show(blurred,(0,0))
+        screen.show(game_over,(width/2-game_over.get_width()/2,height/2-game_over.get_height()))
+        screen.show(score_text,(width/2-score_text.get_width()/2,height/2-score_text.get_height()/2+20))
+        screen.show(restart,(width/2-restart.get_width()/2,height-restart.get_height()-20))
+        for event in pg.event.get():
+            if event.type==pg.KEYDOWN:
+                if event.key==pg.K_RETURN:
+                    car_list=[]
+                    player=Player()
+                    dx,dy,score=0,0,0
+                    status=0
     screen.update()
     
